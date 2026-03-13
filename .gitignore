@@ -1,0 +1,22 @@
+# AWS credentials
+*.env
+aws_creds*
+.aws/
+
+# Docker volumes
+postgres-data/
+openwebui-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+*.pem
+*.key
+*secret*
+*credential*

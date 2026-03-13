@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-litellm}
+      - POSTGRES_USER=${POSTGRES_USER:-litellm}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    ports:
+      - "${LITELLM_PORT:-4000}:4000"
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-litellm}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-litellm}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    ports:
+      - "${OPENWEBUI_PORT:-3000}:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY:-sk-change-me}
+      - ENABLE_FORWARD_USER_INFO_HEADERS=true
+      - WEBUI_AUTH=true
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
+      # SSO (uncomment and fill in for production)
+      # - ENABLE_OAUTH_SIGNUP=true
+      # - OAUTH_PROVIDER_NAME=SSO
+      # - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      # - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      # - OPENID_PROVIDER_URL=${OPENID_PROVIDER_URL}
+    volumes:
+      - openwebui-data:/app/backend/data
+    depends_on:
+      - litellm
+
+volumes:
+  openwebui-data:
+  postgres-data:
